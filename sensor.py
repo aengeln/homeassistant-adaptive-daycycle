@@ -1,0 +1,95 @@
+"""Sensor platform for Adaptive Day Cycle."""
+
+from __future__ import annotations
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .coordinator import AdaptiveDayCycleCoordinator
+from .dc_calculations import (
+    PHASE_AFTERNOON,
+    PHASE_DAWN,
+    PHASE_DUSK,
+    PHASE_EVENING,
+    PHASE_MORNING,
+    PHASE_NIGHT,
+)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Adaptive Day Cycle sensor entities."""
+
+    coordinator: AdaptiveDayCycleCoordinator = hass.data[
+        "adaptive_daycycle"
+    ][entry.entry_id]
+
+    async_add_entities(
+        [
+            AdaptiveDayPhaseSensor(coordinator, entry),
+            AdaptiveDayTimeSensor(coordinator, entry, PHASE_DAWN),
+            AdaptiveDayTimeSensor(coordinator, entry, PHASE_MORNING),
+            AdaptiveDayTimeSensor(coordinator, entry, PHASE_AFTERNOON),
+            AdaptiveDayTimeSensor(coordinator, entry, PHASE_DUSK),
+            AdaptiveDayTimeSensor(coordinator, entry, PHASE_EVENING),
+            AdaptiveDayTimeSensor(coordinator, entry, PHASE_NIGHT),
+        ]
+    )
+
+
+class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
+    """Adaptive Day Cycle phase sensor."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: AdaptiveDayCycleCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+
+        self._attr_unique_id = f"{entry.entry_id}_day_phase"
+        self._attr_name = "Day Phase"
+
+    @property
+    def state(self) -> str:
+        """Return the current phase."""
+        return self.coordinator.data.current_phase.capitalize()
+
+
+class AdaptiveDayTimeSensor(CoordinatorEntity, SensorEntity):
+    """Adaptive Day Cycle phase start time sensor."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        coordinator: AdaptiveDayCycleCoordinator,
+        entry: ConfigEntry,
+        phase: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+
+        self._phase = phase
+
+        self._attr_unique_id = f"{entry.entry_id}_{phase}_start"
+        self._attr_name = f"{phase.capitalize()} Start"
+
+    @property
+    def native_value(self):
+        """Return the phase start timestamp."""
+
+        return self.coordinator.data.phase_starts[self._phase]

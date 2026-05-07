@@ -1,5 +1,3 @@
-
-
 """Config flow for Adaptive Day Cycle."""
 
 from __future__ import annotations
@@ -7,10 +5,23 @@ from __future__ import annotations
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
+from homeassistant.const import (
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+)
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 
-from .const import DEFAULT_NAME, DOMAIN
+from .const import (
+    CONF_EARLIEST_DAWN,
+    CONF_NIGHT_START,
+    CONF_WEATHER_ENTITY,
+    DEFAULT_EARLIEST_DAWN,
+    DEFAULT_NAME,
+    DEFAULT_NIGHT_START,
+    DOMAIN,
+)
 
 
 class AdaptiveDayCycleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -34,6 +45,22 @@ class AdaptiveDayCycleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_LATITUDE, default=self.hass.config.latitude): float,
                 vol.Required(CONF_LONGITUDE, default=self.hass.config.longitude): float,
+                vol.Required(
+                    CONF_EARLIEST_DAWN,
+                    default=DEFAULT_EARLIEST_DAWN,
+                ): str,
+                vol.Required(
+                    CONF_NIGHT_START,
+                    default=DEFAULT_NIGHT_START,
+                ): str,
+                vol.Optional(
+                    CONF_WEATHER_ENTITY,
+                    default="weather.forecast_home",
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain="weather",
+                    )
+                ),
             }
         )
 
@@ -81,6 +108,30 @@ class AdaptiveDayCycleOptionsFlow(config_entries.OptionsFlow):
                         self.hass.config.longitude,
                     ),
                 ): float,
+                vol.Required(
+                    CONF_EARLIEST_DAWN,
+                    default=self.config_entry.data.get(
+                        CONF_EARLIEST_DAWN,
+                        DEFAULT_EARLIEST_DAWN,
+                    ),
+                ): str,
+                vol.Required(
+                    CONF_NIGHT_START,
+                    default=self.config_entry.data.get(
+                        CONF_NIGHT_START,
+                        DEFAULT_NIGHT_START,
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_WEATHER_ENTITY,
+                    default=self.config_entry.data.get(
+                        CONF_WEATHER_ENTITY,
+                    ),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain="weather",
+                    )
+                ),
             }
         )
 

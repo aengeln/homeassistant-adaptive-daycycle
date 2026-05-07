@@ -14,3 +14,9 @@ PHASE_MORNING = "morning"
 PHASE_AFTERNOON = "afternoon"
 PHASE_DUSK = "dusk"
 PHASE_EVENING = "evening"
+
+CONF_EARLIEST_DAWN = "earliest_dawn"
+CONF_NIGHT_START = "night_start"
+
+DEFAULT_EARLIEST_DAWN = "05:00"
+DEFAULT_NIGHT_START = "00:00"

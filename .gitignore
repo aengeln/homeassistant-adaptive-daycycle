@@ -4,3 +4,9 @@ obj/
 *.suo
 *.log
 .vs/
+
+__pycache__/
+*.py[cod]
+.DS_Store
+.idea/
+.vscode/
