@@ -2,7 +2,7 @@
     "name": "Adaptive Day Cycle",
     "content_in_root": true,
     "domains": [
-        "sensor"
+        "adaptive_daycycle"
     ],
     "homeassistant": "2025.1.0"
 }
