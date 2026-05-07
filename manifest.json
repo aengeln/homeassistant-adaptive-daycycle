@@ -1,9 +1,9 @@
 {
   "domain": "adaptive_daycycle",
   "name": "Adaptive Day Cycle",
-  "version": "0.0.1",
-  "documentation": "https://github.com/Aengeln/homeassistant-adaptive-daycycle",
-  "issue_tracker": "https://github.com/Aengeln/homeassistant-adaptive-daycycle/issues",
+  "version": "1.0.2b",
+  "documentation": "https://github.com/aengeln/homeassistant-adaptive-daycycle",
+  "issue_tracker": "https://github.com/aengeln/homeassistant-adaptive-daycycle/issues",
   "codeowners": [
     "@Aengeln"
   ],
