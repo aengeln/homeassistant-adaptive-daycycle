@@ -1,6 +1,6 @@
 {
     "name": "Adaptive Day Cycle",
-    "content_in_root": false,
+    "content_in_root": true,
     "domains": [
         "sensor"
     ],
