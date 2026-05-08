@@ -21,6 +21,15 @@ from .dc_calculations import (
     PHASE_NIGHT,
 )
 
+PHASE_OPTIONS = [
+    PHASE_DAWN,
+    PHASE_MORNING,
+    PHASE_AFTERNOON,
+    PHASE_DUSK,
+    PHASE_EVENING,
+    PHASE_NIGHT,
+]
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -50,6 +59,9 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
     """Adaptive Day Cycle phase sensor."""
 
     _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = PHASE_OPTIONS
+    _attr_translation_key = "day_phase"
 
     def __init__(
         self,
@@ -71,11 +83,14 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
         self._attr_suggested_object_id = (
             f"day_phase_{instance_name}"
         )
+        self._attr_native_value = (
+            self.coordinator.data.current_phase
+        )
 
     @property
-    def state(self) -> str:
+    def native_value(self) -> str:
         """Return the current phase."""
-        return self.coordinator.data.current_phase.capitalize()
+        return self.coordinator.data.current_phase
 
 
 class AdaptiveDayTimeSensor(CoordinatorEntity, SensorEntity):
