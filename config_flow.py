@@ -90,10 +90,19 @@ class AdaptiveDayCycleOptionsFlow(config_entries.OptionsFlow):
         """Manage the integration options."""
 
         if user_input is not None:
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                title=user_input[CONF_NAME],
+            )
+
             return self.async_create_entry(title="", data=user_input)
 
         schema = vol.Schema(
             {
+                vol.Required(
+                    CONF_NAME,
+                    default=self.config_entry.title,
+                ): str,
                 vol.Required(
                     CONF_LATITUDE,
                     default=self.config_entry.data.get(

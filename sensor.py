@@ -59,8 +59,18 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
 
-        self._attr_unique_id = f"{entry.entry_id}_day_phase"
-        self._attr_name = "Day Phase"
+        instance_name = entry.title.lower().replace(" ", "_")
+
+        self._attr_unique_id = (
+            f"adaptive_daycycle_day_phase_{instance_name}"
+        )
+
+        self._attr_name = (
+            f"Day Phase {entry.title}"
+        )
+        self._attr_suggested_object_id = (
+            f"day_phase_{instance_name}"
+        )
 
     @property
     def state(self) -> str:
@@ -83,10 +93,20 @@ class AdaptiveDayTimeSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
 
+        instance_name = entry.title.lower().replace(" ", "_")
+
         self._phase = phase
 
-        self._attr_unique_id = f"{entry.entry_id}_{phase}_start"
-        self._attr_name = f"{phase.capitalize()} Start"
+        self._attr_unique_id = (
+            f"adaptive_daycycle_{phase}_start_{instance_name}"
+        )
+
+        self._attr_name = (
+            f"{phase.capitalize()} Start {entry.title}"
+        )
+        self._attr_suggested_object_id = (
+            f"{phase}_start_{instance_name}"
+        )
 
     @property
     def native_value(self):
