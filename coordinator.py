@@ -66,10 +66,13 @@ class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
             "%H:%M",
         ).time()
 
+        latitude = self.hass.config.latitude
+
         return calculate_daycycle(
             now=now,
             sunrise=sunrise,
             sunset=sunset,
             earliest_dawn=earliest_dawn,
             night_start=night_start,
+            latitude=latitude,
         )

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+import math
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 PHASE_NIGHT = "night"
 PHASE_DAWN = "dawn"
@@ -34,6 +38,8 @@ DEFAULT_DAWN_OFFSET = timedelta(hours=0)
 DEFAULT_MORNING_OFFSET = timedelta(hours=2.5)
 DEFAULT_DUSK_OFFSET = timedelta(hours=2.5)
 DEFAULT_EVENING_OFFSET = timedelta(hours=0)
+
+SEASONAL_DRIFT_MINUTES = 45
 
 WEATHER_ADJUSTMENTS = {
     "sunny": 0,
@@ -89,6 +95,52 @@ def calculate_solar_noon(sunrise: datetime, sunset: datetime) -> datetime:
     return sunrise + ((sunset - sunrise) / 2)
 
 
+# Seasonal daylight adjustment
+def calculate_seasonal_adjustment(
+    target_time: datetime,
+    latitude: float,
+    max_shift_minutes: int = SEASONAL_DRIFT_MINUTES,
+) -> timedelta:
+    """Calculate a seasonal daylight adjustment.
+
+    The adjustment follows a smooth yearly cosine curve:
+
+    - Northern hemisphere:
+      - Summer => negative adjustment
+      - Winter => positive adjustment
+
+    - Southern hemisphere:
+      - Reversed automatically through latitude sign.
+
+    Latitude also scales the effect:
+
+    - Equator (0°) => no seasonal adjustment
+    - Poles (±90°) => maximum adjustment
+    """
+
+    # Normalize latitude into range -1.0 to 1.0.
+    latitude_factor = max(
+        -1.0,
+        min(1.0, latitude / 90.0),
+    )
+
+    # Day-of-year expressed as a continuous yearly cycle.
+    day_of_year = target_time.timetuple().tm_yday
+
+    # Shift so that cosine minimum aligns approximately with June 21.
+    seasonal_curve = math.cos(
+        2 * math.pi * ((day_of_year - 172) / 365.25)
+    )
+
+    seasonal_minutes = (
+        seasonal_curve
+        * latitude_factor
+        * max_shift_minutes
+    )
+
+    return timedelta(minutes=seasonal_minutes)
+
+
 
 
 def calculate_phase_adjustment(
@@ -131,6 +183,7 @@ def calculate_daycycle(
     morning_conditions: EnvironmentalConditions | None = None,
     dusk_conditions: EnvironmentalConditions | None = None,
     evening_conditions: EnvironmentalConditions | None = None,
+    latitude: float = 0.0,
 ) -> DayCycleData:
     """Calculate day phase boundaries and current state.
 
@@ -156,8 +209,14 @@ def calculate_daycycle(
 
     dawn_start = raw_dawn_start
 
+    seasonal_adjustment = calculate_seasonal_adjustment(
+        now,
+        latitude,
+    )
+
     morning_start = (
         raw_morning_start
+        - seasonal_adjustment
         + calculate_phase_adjustment(
             raw_morning_start,
             morning_conditions,
@@ -173,6 +232,7 @@ def calculate_daycycle(
 
     dusk_start = (
         raw_dusk_start
+        + seasonal_adjustment
         - calculate_phase_adjustment(
             raw_dusk_start,
             dusk_conditions,
@@ -181,6 +241,7 @@ def calculate_daycycle(
 
     evening_start = (
         raw_evening_start
+        + seasonal_adjustment
         - calculate_phase_adjustment(
             raw_evening_start,
             evening_conditions,
@@ -190,6 +251,24 @@ def calculate_daycycle(
     # If night_start is earlier than evening_start, it belongs to the next day.
     if night_start_dt <= evening_start:
         night_start_dt += timedelta(days=1)
+
+    LOGGER.warning(
+        (
+            "Calculated phases | "
+            "Dawn: %s | "
+            "Morning: %s | "
+            "Afternoon: %s | "
+            "Dusk: %s | "
+            "Evening: %s | "
+            "Night: %s"
+        ),
+        dawn_start,
+        morning_start,
+        afternoon_start,
+        dusk_start,
+        evening_start,
+        night_start_dt,
+    )
 
     phase_starts = {
         PHASE_DAWN: dawn_start,
