@@ -10,12 +10,22 @@ from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.sun import get_astral_location
+from astral import LocationInfo
+from astral.location import Location
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_EARLIEST_DAWN, CONF_NIGHT_START
-from .dc_calculations import calculate_daycycle
+from .const import (
+    CONF_EARLIEST_DAWN,
+    CONF_NIGHT_START,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_WEATHER_ENTITY,
+)
+from .dc_calculations import (
+    calculate_daycycle,
+    EnvironmentalConditions,
+)
 
 
 class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
@@ -42,18 +52,34 @@ class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
 
         now = dt_util.now()
 
-        astral_location, elevation = get_astral_location(self.hass)
+        latitude = self.entry.data[CONF_LATITUDE]
+        longitude = self.entry.data[CONF_LONGITUDE]
 
-        sunrise = astral_location.sunrise(
-            now.date(),
-            local=True,
-            observer_elevation=elevation,
+        location_info = LocationInfo(
+            name=self.entry.title,
+            region="ADC",
+            timezone=self.hass.config.time_zone,
+            latitude=latitude,
+            longitude=longitude,
         )
 
-        sunset = astral_location.sunset(
-            now.date(),
-            local=True,
-            observer_elevation=elevation,
+        astral_location = Location(location_info)
+        elevation = 0
+
+        sunrise = await self.hass.async_add_executor_job(
+            lambda: astral_location.sunrise(
+                now.date(),
+                local=True,
+                observer_elevation=elevation,
+            )
+        )
+
+        sunset = await self.hass.async_add_executor_job(
+            lambda: astral_location.sunset(
+                now.date(),
+                local=True,
+                observer_elevation=elevation,
+            )
         )
 
         earliest_dawn = datetime.strptime(
@@ -66,7 +92,50 @@ class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
             "%H:%M",
         ).time()
 
-        latitude = self.hass.config.latitude
+
+
+        weather_entity = self.entry.data.get(
+            CONF_WEATHER_ENTITY,
+        )
+
+        conditions = None
+
+        if weather_entity:
+            weather_state = self.hass.states.get(
+                weather_entity,
+            )
+
+            if weather_state:
+                attributes = weather_state.attributes
+
+                conditions = EnvironmentalConditions(
+                    condition=weather_state.state,
+                    cloud_coverage=attributes.get(
+                        "cloud_coverage"
+                    ),
+                    precipitation=attributes.get(
+                        "precipitation"
+                    ),
+                    illuminance=attributes.get(
+                        "illuminance"
+                    ),
+                )
+
+                """LOGGER.warning(
+                    (
+                        "ADC Weather | "
+                        "Entity: %s | "
+                        "Condition: %s | "
+                        "Clouds: %s | "
+                        "Precipitation: %s | "
+                        "Illuminance: %s"
+                    ),
+                    weather_entity,
+                    conditions.condition,
+                    conditions.cloud_coverage,
+                    conditions.precipitation,
+                    conditions.illuminance,
+                )"""
 
         return calculate_daycycle(
             now=now,
@@ -74,5 +143,8 @@ class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
             sunset=sunset,
             earliest_dawn=earliest_dawn,
             night_start=night_start,
+            morning_conditions=conditions,
+            dusk_conditions=conditions,
+            evening_conditions=conditions,
             latitude=latitude,
         )

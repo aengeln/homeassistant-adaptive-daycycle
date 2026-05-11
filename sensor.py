@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.device_registry import DeviceEntryType
 
 from .coordinator import AdaptiveDayCycleCoordinator
 from .dc_calculations import (
@@ -70,6 +71,7 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._entry = entry
 
         instance_name = entry.title.lower().replace(" ", "_")
 
@@ -86,6 +88,19 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
         self._attr_native_value = (
             self.coordinator.data.current_phase
         )
+
+    @property
+    def device_info(self):
+        """Return device information."""
+        return {
+            "identifiers": {
+                ("adaptive_daycycle", self._entry.entry_id)
+            },
+            "name": self._entry.title,
+            "manufacturer": "Aengeln",
+            "model": "Adaptive Day Cycle",
+            "entry_type": DeviceEntryType.SERVICE,
+        }
 
     @property
     def native_value(self) -> str:
@@ -107,6 +122,7 @@ class AdaptiveDayTimeSensor(CoordinatorEntity, SensorEntity):
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._entry = entry
 
         instance_name = entry.title.lower().replace(" ", "_")
 
@@ -128,3 +144,15 @@ class AdaptiveDayTimeSensor(CoordinatorEntity, SensorEntity):
         """Return the phase start timestamp."""
 
         return self.coordinator.data.phase_starts[self._phase]
+    @property
+    def device_info(self):
+        """Return device information."""
+        return {
+            "identifiers": {
+                ("adaptive_daycycle", self._entry.entry_id)
+            },
+            "name": self._entry.title,
+            "manufacturer": "Aengeln",
+            "model": "Adaptive Day Cycle",
+            "entry_type": DeviceEntryType.SERVICE,
+        }

@@ -44,15 +44,15 @@ SEASONAL_DRIFT_MINUTES = 45
 WEATHER_ADJUSTMENTS = {
     "sunny": 0,
     "clear-night": 0,
-    "partlycloudy": 15,
-    "cloudy": 45,
-    "fog": 60,
-    "rainy": 75,
-    "pouring": 105,
-    "lightning": 120,
-    "lightning-rainy": 135,
-    "snowy": 30,
-    "snowy-rainy": 60,
+    "partlycloudy": 5,
+    "cloudy": 10,
+    "fog": 15,
+    "rainy": 20,
+    "pouring": 30,
+    "lightning": 35,
+    "lightning-rainy": 40,
+    "snowy": 10,
+    "snowy-rainy": 20,
 }
 
 
@@ -166,12 +166,41 @@ def calculate_phase_adjustment(
     if conditions.condition is None:
         return timedelta(0)
 
-    base_adjustment = WEATHER_ADJUSTMENTS.get(
+    adjustment_minutes = WEATHER_ADJUSTMENTS.get(
         conditions.condition,
         0,
     )
 
-    return timedelta(minutes=base_adjustment)
+    # Heavy precipitation slightly increases perceived darkness.
+    # This acts only as a subtle modifier on top of the base condition.
+    if conditions.precipitation is not None:
+        adjustment_minutes += min(
+            max(0.0, conditions.precipitation),
+            10,
+        )
+
+    adjustment_minutes = min(
+        max(adjustment_minutes, -15),
+        60,
+    )
+
+    """LOGGER.warning(
+        (
+            "Environmental adjustment | "
+            "Condition: %s | "
+            "Clouds: %s | "
+            "Precipitation: %s | "
+            "Illuminance: %s | "
+            "Adjustment: %.1f minutes"
+        ),
+        conditions.condition,
+        conditions.cloud_coverage,
+        conditions.precipitation,
+        conditions.illuminance,
+        adjustment_minutes,
+    )"""
+
+    return timedelta(minutes=adjustment_minutes)
 
 
 def calculate_daycycle(
@@ -252,7 +281,7 @@ def calculate_daycycle(
     if night_start_dt <= evening_start:
         night_start_dt += timedelta(days=1)
 
-    LOGGER.warning(
+    """LOGGER.warning(
         (
             "Calculated phases | "
             "Dawn: %s | "
@@ -268,7 +297,7 @@ def calculate_daycycle(
         dusk_start,
         evening_start,
         night_start_dt,
-    )
+    )"""
 
     phase_starts = {
         PHASE_DAWN: dawn_start,
