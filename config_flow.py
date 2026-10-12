@@ -24,6 +24,12 @@ from .const import (
 )
 
 
+_TIME_SELECTOR = selector.TimeSelector()
+_WEATHER_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="weather")
+)
+
+
 class AdaptiveDayCycleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Adaptive Day Cycle."""
 
@@ -48,19 +54,12 @@ class AdaptiveDayCycleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_EARLIEST_DAWN,
                     default=DEFAULT_EARLIEST_DAWN,
-                ): str,
+                ): _TIME_SELECTOR,
                 vol.Required(
                     CONF_NIGHT_START,
                     default=DEFAULT_NIGHT_START,
-                ): str,
-                vol.Optional(
-                    CONF_WEATHER_ENTITY,
-                    default="weather.forecast_home",
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain="weather",
-                    )
-                ),
+                ): _TIME_SELECTOR,
+                vol.Optional(CONF_WEATHER_ENTITY): _WEATHER_SELECTOR,
             }
         )
 
@@ -81,11 +80,6 @@ class AdaptiveDayCycleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class AdaptiveDayCycleOptionsFlow(config_entries.OptionsFlow):
     """Handle options for Adaptive Day Cycle."""
 
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-
-        self.config_entry = config_entry
-
     async def async_step_init(self, user_input=None):
         """Manage the integration options."""
 
@@ -97,54 +91,29 @@ class AdaptiveDayCycleOptionsFlow(config_entries.OptionsFlow):
 
             return self.async_create_entry(title="", data=user_input)
 
+        current = {**self.config_entry.data, **self.config_entry.options}
+
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_NAME,
-                    default=self.config_entry.title,
-                ): str,
-                vol.Required(
-                    CONF_LATITUDE,
-                    default=self.config_entry.data.get(
-                        CONF_LATITUDE,
-                        self.hass.config.latitude,
-                    ),
-                ): float,
-                vol.Required(
-                    CONF_LONGITUDE,
-                    default=self.config_entry.data.get(
-                        CONF_LONGITUDE,
-                        self.hass.config.longitude,
-                    ),
-                ): float,
-                vol.Required(
-                    CONF_EARLIEST_DAWN,
-                    default=self.config_entry.data.get(
-                        CONF_EARLIEST_DAWN,
-                        DEFAULT_EARLIEST_DAWN,
-                    ),
-                ): str,
-                vol.Required(
-                    CONF_NIGHT_START,
-                    default=self.config_entry.data.get(
-                        CONF_NIGHT_START,
-                        DEFAULT_NIGHT_START,
-                    ),
-                ): str,
-                vol.Optional(
-                    CONF_WEATHER_ENTITY,
-                    default=self.config_entry.data.get(
-                        CONF_WEATHER_ENTITY,
-                    ),
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain="weather",
-                    )
-                ),
+                vol.Required(CONF_NAME): str,
+                vol.Required(CONF_LATITUDE): float,
+                vol.Required(CONF_LONGITUDE): float,
+                vol.Required(CONF_EARLIEST_DAWN): _TIME_SELECTOR,
+                vol.Required(CONF_NIGHT_START): _TIME_SELECTOR,
+                vol.Optional(CONF_WEATHER_ENTITY): _WEATHER_SELECTOR,
             }
         )
 
+        suggested = {
+            CONF_NAME: self.config_entry.title,
+            CONF_LATITUDE: current.get(CONF_LATITUDE, self.hass.config.latitude),
+            CONF_LONGITUDE: current.get(CONF_LONGITUDE, self.hass.config.longitude),
+            CONF_EARLIEST_DAWN: current.get(CONF_EARLIEST_DAWN, DEFAULT_EARLIEST_DAWN),
+            CONF_NIGHT_START: current.get(CONF_NIGHT_START, DEFAULT_NIGHT_START),
+            CONF_WEATHER_ENTITY: current.get(CONF_WEATHER_ENTITY),
+        }
+
         return self.async_show_form(
             step_id="init",
-            data_schema=schema,
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
         )

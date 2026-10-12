@@ -62,7 +62,7 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = PHASE_OPTIONS
-    _attr_translation_key = "day_phase"
+    _attr_name = "Day Phase"
 
     def __init__(
         self,
@@ -73,21 +73,7 @@ class AdaptiveDayPhaseSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
 
-        instance_name = entry.title.lower().replace(" ", "_")
-
-        self._attr_unique_id = (
-            f"adaptive_daycycle_day_phase_{instance_name}"
-        )
-
-        self._attr_name = (
-            f"Day Phase {entry.title}"
-        )
-        self._attr_suggested_object_id = (
-            f"day_phase_{instance_name}"
-        )
-        self._attr_native_value = (
-            self.coordinator.data.current_phase
-        )
+        self._attr_unique_id = f"{entry.entry_id}_day_phase"
 
     @property
     def device_info(self):
@@ -124,20 +110,10 @@ class AdaptiveDayTimeSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
 
-        instance_name = entry.title.lower().replace(" ", "_")
-
         self._phase = phase
 
-        self._attr_unique_id = (
-            f"adaptive_daycycle_{phase}_start_{instance_name}"
-        )
-
-        self._attr_name = (
-            f"{phase.capitalize()} Start {entry.title}"
-        )
-        self._attr_suggested_object_id = (
-            f"{phase}_start_{instance_name}"
-        )
+        self._attr_unique_id = f"{entry.entry_id}_{phase}_start"
+        self._attr_name = f"{phase.capitalize()} Start"
 
     @property
     def native_value(self):

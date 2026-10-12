@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 import math
-import logging
-
-LOGGER = logging.getLogger(__name__)
 
 PHASE_NIGHT = "night"
 PHASE_DAWN = "dawn"
@@ -16,30 +13,13 @@ PHASE_AFTERNOON = "afternoon"
 PHASE_DUSK = "dusk"
 PHASE_EVENING = "evening"
 
-PHASE_ORDER = [
-    PHASE_NIGHT,
-    PHASE_DAWN,
-    PHASE_MORNING,
-    PHASE_AFTERNOON,
-    PHASE_DUSK,
-    PHASE_EVENING,
-]
-
-DAYTIME_PHASE_ORDER = [
-    PHASE_DAWN,
-    PHASE_MORNING,
-    PHASE_AFTERNOON,
-    PHASE_DUSK,
-    PHASE_EVENING,
-    PHASE_NIGHT,
-]
-
-DEFAULT_DAWN_OFFSET = timedelta(hours=0)
 DEFAULT_MORNING_OFFSET = timedelta(hours=2.5)
 DEFAULT_DUSK_OFFSET = timedelta(hours=2.5)
 DEFAULT_EVENING_OFFSET = timedelta(hours=0)
 
 SEASONAL_DRIFT_MINUTES = 45
+
+MIN_PHASE_LENGTH = timedelta(minutes=1)
 
 WEATHER_ADJUSTMENTS = {
     "sunny": 0,
@@ -106,8 +86,8 @@ def calculate_seasonal_adjustment(
     The adjustment follows a smooth yearly cosine curve:
 
     - Northern hemisphere:
-      - Summer => negative adjustment
-      - Winter => positive adjustment
+      - Summer => positive adjustment
+      - Winter => negative adjustment
 
     - Southern hemisphere:
       - Reversed automatically through latitude sign.
@@ -127,7 +107,7 @@ def calculate_seasonal_adjustment(
     # Day-of-year expressed as a continuous yearly cycle.
     day_of_year = target_time.timetuple().tm_yday
 
-    # Shift so that cosine minimum aligns approximately with June 21.
+    # Shift so that the cosine maximum aligns approximately with June 21.
     seasonal_curve = math.cos(
         2 * math.pi * ((day_of_year - 172) / 365.25)
     )
@@ -153,9 +133,8 @@ def calculate_phase_adjustment(
     target_time represents the calculated raw phase boundary before any
     environmental adjustments are applied.
 
-    Environmental conditions should therefore be evaluated relative to the
-    expected conditions at the actual phase transition time rather than the
-    current time.
+    Currently the conditions supplied are the present ones, not a forecast
+    for the transition time.
     """
 
     _ = target_time
@@ -184,21 +163,6 @@ def calculate_phase_adjustment(
         60,
     )
 
-    """LOGGER.warning(
-        (
-            "Environmental adjustment | "
-            "Condition: %s | "
-            "Clouds: %s | "
-            "Precipitation: %s | "
-            "Illuminance: %s | "
-            "Adjustment: %.1f minutes"
-        ),
-        conditions.condition,
-        conditions.cloud_coverage,
-        conditions.precipitation,
-        conditions.illuminance,
-        adjustment_minutes,
-    )"""
 
     return timedelta(minutes=adjustment_minutes)
 
@@ -225,11 +189,9 @@ def calculate_daycycle(
     earliest_dawn_dt = combine_local_time(now, earliest_dawn)
     night_start_dt = combine_local_time(now, night_start)
 
-    # Calculate raw phase anchors before environmental adjustments.
-    raw_dawn_start = max(
-        earliest_dawn_dt,
-        sunrise + DEFAULT_DAWN_OFFSET,
-    )
+    # Dawn is pinned to the configured time, so it starts then even when
+    # sunrise is later (autumn/winter) and never earlier (summer).
+    raw_dawn_start = earliest_dawn_dt
 
     raw_morning_start = sunrise + DEFAULT_MORNING_OFFSET
     raw_afternoon_start = solar_noon
@@ -277,27 +239,19 @@ def calculate_daycycle(
         )
     )
 
+    # Keep the daytime phases strictly ordered. At high latitudes in winter the
+    # offsets can otherwise collide or invert.
+    previous = dawn_start
+    ordered = []
+    for start in (morning_start, afternoon_start, dusk_start, evening_start):
+        previous = max(start, previous + MIN_PHASE_LENGTH)
+        ordered.append(previous)
+    morning_start, afternoon_start, dusk_start, evening_start = ordered
+
     # If night_start is earlier than evening_start, it belongs to the next day.
     if night_start_dt <= evening_start:
         night_start_dt += timedelta(days=1)
 
-    """LOGGER.warning(
-        (
-            "Calculated phases | "
-            "Dawn: %s | "
-            "Morning: %s | "
-            "Afternoon: %s | "
-            "Dusk: %s | "
-            "Evening: %s | "
-            "Night: %s"
-        ),
-        dawn_start,
-        morning_start,
-        afternoon_start,
-        dusk_start,
-        evening_start,
-        night_start_dt,
-    )"""
 
     phase_starts = {
         PHASE_DAWN: dawn_start,

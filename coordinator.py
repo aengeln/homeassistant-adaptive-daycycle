@@ -2,30 +2,32 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 import logging
 
-LOGGER = logging.getLogger(__name__)
-
-from datetime import datetime, timedelta
+from astral import LocationInfo
+from astral.location import Location
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from astral import LocationInfo
-from astral.location import Location
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_EARLIEST_DAWN,
-    CONF_NIGHT_START,
     CONF_LATITUDE,
     CONF_LONGITUDE,
+    CONF_NIGHT_START,
     CONF_WEATHER_ENTITY,
+    DEFAULT_EARLIEST_DAWN,
+    DEFAULT_NIGHT_START,
 )
 from .dc_calculations import (
-    calculate_daycycle,
     EnvironmentalConditions,
+    calculate_daycycle,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
@@ -47,13 +49,19 @@ class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
 
         self.entry = entry
 
+    @property
+    def settings(self) -> dict:
+        """Return entry data overridden by options."""
+        return {**self.entry.data, **self.entry.options}
+
     async def _async_update_data(self):
         """Update day cycle data."""
 
+        settings = self.settings
         now = dt_util.now()
 
-        latitude = self.entry.data[CONF_LATITUDE]
-        longitude = self.entry.data[CONF_LONGITUDE]
+        latitude = settings[CONF_LATITUDE]
+        longitude = settings[CONF_LONGITUDE]
 
         location_info = LocationInfo(
             name=self.entry.title,
@@ -62,80 +70,40 @@ class AdaptiveDayCycleCoordinator(DataUpdateCoordinator):
             latitude=latitude,
             longitude=longitude,
         )
-
         astral_location = Location(location_info)
-        elevation = 0
 
-        sunrise = await self.hass.async_add_executor_job(
-            lambda: astral_location.sunrise(
-                now.date(),
-                local=True,
-                observer_elevation=elevation,
-            )
+        try:
+            sunrise = astral_location.sunrise(now.date(), local=True)
+            sunset = astral_location.sunset(now.date(), local=True)
+        except ValueError:
+            # Polar day/night: the sun neither rises nor sets. Fall back to a
+            # symmetric day around solar noon.
+            noon = astral_location.noon(now.date(), local=True)
+            sunrise = noon - timedelta(hours=6)
+            sunset = noon + timedelta(hours=6)
+
+        earliest_dawn = dt_util.parse_time(
+            settings.get(CONF_EARLIEST_DAWN, DEFAULT_EARLIEST_DAWN)
         )
-
-        sunset = await self.hass.async_add_executor_job(
-            lambda: astral_location.sunset(
-                now.date(),
-                local=True,
-                observer_elevation=elevation,
-            )
-        )
-
-        earliest_dawn = datetime.strptime(
-            self.entry.data[CONF_EARLIEST_DAWN],
-            "%H:%M",
-        ).time()
-
-        night_start = datetime.strptime(
-            self.entry.data[CONF_NIGHT_START],
-            "%H:%M",
-        ).time()
-
-
-
-        weather_entity = self.entry.data.get(
-            CONF_WEATHER_ENTITY,
+        night_start = dt_util.parse_time(
+            settings.get(CONF_NIGHT_START, DEFAULT_NIGHT_START)
         )
 
         conditions = None
+        weather_entity = settings.get(CONF_WEATHER_ENTITY)
 
         if weather_entity:
-            weather_state = self.hass.states.get(
-                weather_entity,
-            )
+            weather_state = self.hass.states.get(weather_entity)
 
             if weather_state:
                 attributes = weather_state.attributes
 
                 conditions = EnvironmentalConditions(
                     condition=weather_state.state,
-                    cloud_coverage=attributes.get(
-                        "cloud_coverage"
-                    ),
-                    precipitation=attributes.get(
-                        "precipitation"
-                    ),
-                    illuminance=attributes.get(
-                        "illuminance"
-                    ),
+                    cloud_coverage=attributes.get("cloud_coverage"),
+                    precipitation=attributes.get("precipitation"),
+                    illuminance=attributes.get("illuminance"),
                 )
-
-                """LOGGER.warning(
-                    (
-                        "ADC Weather | "
-                        "Entity: %s | "
-                        "Condition: %s | "
-                        "Clouds: %s | "
-                        "Precipitation: %s | "
-                        "Illuminance: %s"
-                    ),
-                    weather_entity,
-                    conditions.condition,
-                    conditions.cloud_coverage,
-                    conditions.precipitation,
-                    conditions.illuminance,
-                )"""
 
         return calculate_daycycle(
             now=now,
