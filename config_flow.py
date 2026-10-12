@@ -74,7 +74,7 @@ class AdaptiveDayCycleConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
 
-        return AdaptiveDayCycleOptionsFlow(config_entry)
+        return AdaptiveDayCycleOptionsFlow()
 
 
 class AdaptiveDayCycleOptionsFlow(config_entries.OptionsFlow):
